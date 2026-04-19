@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بورتو زلابية | لوحة المتابعة المباشرة</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            red: '#ef4444',
+                            dark: '#dc2626',
+                            bg: '#f8fafc',
+                            card: '#ffffff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f1f5f9; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+        /* Loader */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #ef4444;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen">
+
+    <!-- Header -->
+    <nav class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-brand-red text-white p-2 rounded-lg">
+                        <i class="fas fa-chart-line text-xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-slate-800 tracking-tight">بورتو زلابية <span class="text-brand-red">لايف</span></h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <!-- Date Filter -->
+                    <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                        <input type="date" id="dateFilter" class="bg-transparent text-sm font-bold text-slate-700 outline-none px-2 py-1 cursor-pointer">
+                        <button onclick="resetToToday()" class="text-xs bg-white hover:bg-slate-50 text-slate-600 px-4 py-1 rounded shadow-sm border border-slate-200 transition font-bold">اليوم</button>
+                    </div>
+                    <span class="hidden md:flex items-center gap-2 text-sm font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                        <span class="relative flex h-3 w-3">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                        </span>
+                        متصل مباشر
+                    </span>
+                    <div id="lastSync" class="text-xs text-slate-500">جاري الاتصال...</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Loading State -->
+        <div id="loadingState" class="flex flex-col items-center justify-center py-20">
+            <div class="loader mb-4"></div>
+            <p class="text-slate-500 font-semibold animate-pulse">جاري جلب البيانات من السيرفر...</p>
+        </div>
+
+        <div id="dashboardContent" class="hidden">
+            <!-- Tabs Menu -->
+            <div class="flex border-b border-slate-200 mb-8 gap-2 overflow-x-auto pb-1 no-scrollbar bg-white p-2 rounded-xl sticky top-20 z-40 shadow-sm">
+                <button onclick="switchTab('overview')" class="tab-btn active border-b-2 border-brand-red px-6 py-3 text-sm font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all hover:bg-slate-50 rounded-t-lg">
+                    <i class="fas fa-th-large"></i> نظرة عامة
+                </button>
+                <button onclick="switchTab('shifts')" class="tab-btn px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all hover:bg-slate-50 rounded-t-lg">
+                    <i class="fas fa-history"></i> سجل الشفتات
+                </button>
+                <button onclick="switchTab('logs')" class="tab-btn px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all hover:bg-slate-50 rounded-t-lg">
+                    <i class="fas fa-file-invoice"></i> سجل التقارير
+                </button>
+                <button onclick="switchTab('employees')" class="tab-btn px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all hover:bg-slate-50 rounded-t-lg">
+                    <i class="fas fa-id-card"></i> إدارة الموظفين
+                </button>
+                <button onclick="switchTab('expenses')" class="tab-btn px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all hover:bg-slate-50 rounded-t-lg">
+                    <i class="fas fa-hand-holding-usd"></i> إدارة المصاريف
+                </button>
+                <button onclick="switchTab('ordering')" class="tab-btn px-6 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all hover:bg-slate-50 rounded-t-lg">
+                    <i class="fas fa-shopping-basket"></i> طلب أونلاين
+                </button>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="overviewTab" class="tab-content">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Today's Revenue -->
+                    <div class="glass-card rounded-2xl p-6 transition hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 mb-1">مبيعات اليوم</p>
+                                <h3 id="todayRevenue" class="text-3xl font-bold text-slate-800">0 ج.م</h3>
+                            </div>
+                            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
+                                <i class="fas fa-money-bill-wave text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Today's Expenses -->
+                    <div class="glass-card rounded-2xl p-6 transition hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 mb-1">مصاريف اليوم</p>
+                                <h3 id="todayExpenses" class="text-3xl font-bold text-slate-800">0 ج.م</h3>
+                            </div>
+                            <div class="p-3 bg-red-50 text-red-600 rounded-xl">
+                                <i class="fas fa-hand-holding-usd text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Shift -->
+                    <div class="glass-card rounded-2xl p-6 transition hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 mb-1">حالة الشفت</p>
+                                <h3 id="shiftStatus" class="text-xl font-bold text-slate-800 mt-2">مغلق</h3>
+                                <p id="shiftCashier" class="text-xs text-slate-400 mt-1">-</p>
+                            </div>
+                            <div class="p-3 bg-purple-50 text-purple-600 rounded-xl">
+                                <i class="fas fa-user-clock text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Products Sold -->
+                    <div class="glass-card rounded-2xl p-6 transition hover:-translate-y-1 hover:shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-500 mb-1">عدد الفواتير (اليوم)</p>
+                                <h3 id="todayInvoices" class="text-3xl font-bold text-slate-800">0</h3>
+                            </div>
+                            <div class="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                                <i class="fas fa-receipt text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="glass-card rounded-2xl p-6 lg:col-span-2">
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800"><i class="fas fa-chart-area text-brand-red"></i> مبيعات آخر 7 أيام</h3>
+                        <div class="table-controls flex gap-2">
+                        <input type="text" id="expenseSearch" placeholder="البحث في المصاريف..." oninput="searchExpenses()" class="flex-grow">
+                        <button onclick="clearAllLogsOnline()" class="bg-red-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-red-700 transition flex items-center gap-2 shadow-lg shadow-red-100">
+                            <i class="fas fa-trash-sweep"></i> مسح جميع التقارير (نهائياً)
+                        </button>
+                    </div>
+                        <div class="h-[300px] w-full">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-2xl p-6">
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800"><i class="fas fa-chart-pie text-brand-red"></i> المنتجات الأكثر مبيعاً</h3>
+                        <div class="h-[300px] w-full">
+                            <canvas id="productsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Sales Table -->
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-slate-800"><i class="fas fa-history text-brand-red mr-2"></i> أحدث العمليات (مباشر)</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right">
+                            <thead class="bg-slate-50 text-slate-500 text-sm">
+                                <tr>
+                                    <th class="py-3 px-6 font-semibold">رقم الفاتورة</th>
+                                    <th class="py-3 px-6 font-semibold">الوقت</th>
+                                    <th class="py-3 px-6 font-semibold">المنتجات</th>
+                                    <th class="py-3 px-6 font-semibold">الإجمالي</th>
+                                    <th class="py-3 px-6 font-semibold">الكاشير</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentSalesTable" class="divide-y divide-slate-100 text-sm">
+                                <!-- Injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shifts History Tab -->
+            <div id="shiftsTab" class="tab-content hidden">
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-100">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                                <i class="fas fa-history text-brand-red ml-3"></i> سجل الشفتات التاريخي
+                            </h2>
+                            <button onclick="clearShiftsHistoryOnline()" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center">
+                                <i class="fas fa-trash-alt ml-2"></i> مسح السجل بالكامل
+                            </button>
+                        </div>
+                        <table class="w-full text-right overflow-hidden rounded-xl bg-white">
+                            <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+                                <tr>
+                                    <th class="py-3 px-6 font-semibold">ID</th>
+                                    <th class="py-3 px-6 font-semibold">الكاشير</th>
+                                    <th class="py-3 px-6 font-semibold">الوقت</th>
+                                    <th class="py-3 px-6 font-semibold">الحسابات</th>
+                                    <th class="py-3 px-6 font-semibold">الصافي والفرق</th>
+                                    <th class="py-3 px-6 font-semibold">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shiftsHistoryTable" class="divide-y divide-slate-100 text-sm">
+                                <!-- Injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Logs Tab -->
+            <div id="logsTab" class="tab-content hidden">
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <div class="table-controls flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-slate-800"><i class="fas fa-file-invoice text-brand-red mr-2"></i> تقارير النظام المفصلة</h3>
+                    <button onclick="clearAllLogsOnline()" class="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition flex items-center gap-2 shadow-md shadow-red-100">
+                        <i class="fas fa-trash-alt"></i> مسح كافة التقارير نهائياً
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm">
+                            <thead class="bg-slate-50 text-slate-500">
+                                <tr>
+                                    <th class="py-3 px-6 font-semibold">النوع</th>
+                                    <th class="py-3 px-6 font-semibold">التاريخ</th>
+                                    <th class="py-3 px-6 font-semibold">الوصف</th>
+                                    <th class="py-3 px-6 font-semibold">القيمة</th>
+                                    <th class="py-3 px-6 font-semibold">المستخدم</th>
+                                    <th class="py-3 px-6 font-semibold text-center">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailedLogsTable" class="divide-y divide-slate-100">
+                                <!-- Injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employees Management Tab -->
+            <div id="employeesTab" class="tab-content hidden">
+                <div class="glass-card rounded-2xl p-6 mb-8 border border-slate-100 bg-white">
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800">
+                        <i class="fas fa-user-plus text-brand-red"></i> إضافة موظف جديد
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 mr-2">اسم الموظف</label>
+                            <input type="text" id="employeeNameInput" placeholder="أدخل اسم الموظف..." class="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-red outline-none transition-all">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-xs font-bold text-slate-500 mr-2">سعر الساعة (ج.م)</label>
+                            <input type="number" id="hourlyRateInput" placeholder="0.00" class="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-brand-red outline-none transition-all">
+                        </div>
+                        <button onclick="addEmployeeOnline()" class="md:col-span-2 bg-brand-red text-white font-black py-4 rounded-xl hover:bg-brand-dark transition shadow-lg shadow-red-100 flex items-center justify-center gap-2 mt-2">
+                            <i class="fas fa-check-circle"></i> إضافة الموظف للنظام
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden border border-slate-100 bg-white shadow-sm">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50/30 flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-slate-800"><i class="fas fa-users text-brand-red ml-2"></i> قائمة الموظفين والحسابات الجارية</h3>
+                        <span class="text-xs text-slate-400 font-semibold">تحديث مباشر</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right text-sm">
+                            <thead class="bg-slate-50 text-slate-500 font-bold">
+                                <tr>
+                                    <th class="py-4 px-6 border-b border-slate-100">الموظف</th>
+                                    <th class="py-4 px-6 border-b border-slate-100 text-center">سعر الساعة</th>
+                                    <th class="py-4 px-6 border-b border-slate-100 text-center">الساعات</th>
+                                    <th class="py-4 px-6 border-b border-slate-100 text-center">المستحقات</th>
+                                    <th class="py-4 px-6 border-b border-slate-100 text-center">المسحوبات</th>
+                                    <th class="py-4 px-6 border-b border-slate-100 text-center">الصافي</th>
+                                    <th class="py-4 px-6 border-b border-slate-100 text-center">إجراءات سريعة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeesTableOnline" class="divide-y divide-slate-50">
+                                <!-- سيتم ملء البيانات ديناميكياً بواسطة JS -->
+                                <tr>
+                                    <td colspan="7" class="py-10 text-center text-slate-400 italic">جاري تحميل بيانات الموظفين...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expenses Management Tab -->
+            <div id="expensesTab" class="tab-content hidden">
+                <div class="glass-card rounded-2xl overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                            <i class="fas fa-hand-holding-usd text-brand-red ml-3"></i> سجل المصاريف التفصيلي
+                        </h2>
+                        <div class="flex gap-3">
+                            <div class="relative">
+                                <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="text" id="expensesSearchOnline" placeholder="بحث في المصاريف..." oninput="filterOnlineExpenses()" class="pr-9 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-1 focus:ring-brand-red">
+                            </div>
+                            <button onclick="clearAllExpensesOnline()" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center">
+                                <i class="fas fa-trash-alt ml-2"></i> مسح كافة المصاريف
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-right">
+                            <thead class="bg-slate-50 text-slate-600 text-xs uppercase">
+                                <tr>
+                                    <th class="py-3 px-6 font-semibold">التاريخ والوقت</th>
+                                    <th class="py-3 px-6 font-semibold">اسم المصروف</th>
+                                    <th class="py-3 px-6 font-semibold">المبلغ</th>
+                                    <th class="py-3 px-6 font-semibold">الفئة</th>
+                                    <th class="py-3 px-6 font-semibold">المستخدم</th>
+                                    <th class="py-3 px-6 font-semibold">ملاحظات</th>
+                                    <th class="py-3 px-6 font-semibold text-center">الإجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="onlineExpensesTableBody" class="divide-y divide-slate-100 text-sm">
+                                <!-- Injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Online Ordering Tab -->
+            <div id="orderingTab" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Menu Grid -->
+                    <div class="lg:col-span-2 glass-card rounded-2xl p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-slate-800"><i class="fas fa-utensils text-brand-red ml-2"></i> قائمة الأصناف</h3>
+                            <div class="relative w-64">
+                                <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="text" id="menuSearch" placeholder="بحث عن صنف..." oninput="filterOnlineMenu()" class="w-full pr-9 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-1 focus:ring-brand-red">
+                            </div>
+                        </div>
+                        <div id="onlineMenuGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto p-1 custom-scrollbar">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Cart Section -->
+                    <div class="glass-card rounded-2xl flex flex-col h-fit sticky top-24">
+                        <div class="p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+                            <h3 class="text-xl font-bold text-slate-800 flex items-center justify-between">
+                                <span><i class="fas fa-shopping-basket text-brand-red ml-2"></i> سلة الطلب</span>
+                                <span id="cartCountBadge" class="bg-brand-red text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+                            </h3>
+                        </div>
+                        <div id="onlineCartItems" class="p-4 space-y-3 min-h-[200px] max-h-[400px] overflow-y-auto custom-scrollbar">
+                            <div class="flex flex-col items-center justify-center py-10 text-slate-400">
+                                <i class="fas fa-shopping-basket text-4xl mb-3 opacity-20"></i>
+                                <p class="text-xs">السلة فارغة حالياً</p>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 bg-white rounded-b-2xl">
+                            <div class="space-y-2 mb-6">
+                                <div class="flex justify-between text-slate-500 text-sm">
+                                    <span>الإجمالي الفرعي:</span>
+                                    <span id="cartSubtotal">0.00 ج</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <span class="font-bold text-slate-800">إجمالي المطلوب:</span>
+                                    <span id="cartTotal" class="text-2xl font-black text-brand-red">0.00 ج.م</span>
+                                </div>
+                            </div>
+                            <button onclick="sendOrderToPOS()" id="sendOrderBtn" class="w-full bg-brand-red text-white py-4 rounded-xl font-black text-lg hover:bg-red-600 transition shadow-lg shadow-red-100 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-bell animate-bounce"></i> إرسال الطلب للكاشير
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal مخصص لطلب السعر -->
+        <div id="priceModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center">
+            <div class="bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm mx-4 transform transition-all">
+                <h3 class="text-xl font-bold text-slate-800 mb-2" id="priceModalTitle">أنت عايز بكام؟</h3>
+                <p class="text-slate-500 text-sm mb-4" id="priceModalProduct"></p>
+                <input type="number" id="customPriceInput" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-slate-800 focus:border-brand-red focus:outline-none transition" placeholder="أدخل السعر" step="0.01">
+                <div class="flex gap-3 mt-6">
+                    <button onclick="cancelPriceModal()" class="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-200 transition">إلغاء</button>
+                    <button onclick="confirmPriceModal()" class="flex-1 bg-brand-red text-white py-3 rounded-xl font-bold hover:bg-red-600 transition">تأكيد</button>
+                </div>
+            </div>
+        </div>
+
+
+    </main>
+
+    <!-- Firebase SDK (v8 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
